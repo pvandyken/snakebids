@@ -5,6 +5,8 @@ from collections import OrderedDict
 from pathlib import Path
 from typing import List, Optional, Union
 
+from bids import BIDSLayout, BIDSLayoutIndexer
+
 
 # pylint: disable=too-many-arguments
 def bids(
@@ -200,10 +202,15 @@ def bids(
 
 def main(root: Path, entities: List[str]):
     matches = [re.match(r"^([^\d\W]\w*)=(?!.*=)(.*)$", value) for value in entities]
+    layout = BIDSLayout(
+        root,
+        derivatives=True,
+        validate=False,
+        indexer=BIDSLayoutIndexer(validate=False, index_metadata=False),
+    )
     if all(matches):
         print(
-            bids(
-                root,
+            layout.get(
                 **{str(m.group(1)): str(m.group(2)) for m in matches},  # type: ignore
             )
         )
