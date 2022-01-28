@@ -204,16 +204,15 @@ def main(root: Path, entities: List[str]):
     matches = [re.match(r"^([^\d\W]\w*)=(?!.*=)(.*)$", value) for value in entities]
     layout = BIDSLayout(
         root,
-        derivatives=True,
         validate=False,
         indexer=BIDSLayoutIndexer(validate=False, index_metadata=False),
+        database_path=".pydb"
     )
     if all(matches):
-        print(
-            layout.get(
-                **{str(m.group(1)): str(m.group(2)) for m in matches},  # type: ignore
-            )
-        )
+        for obj in layout.get(
+            **{str(m.group(1)): str(m.group(2)) for m in matches},  # type: ignore
+        ):
+            print(obj.path)
 
 
 def print_boilerplate():
