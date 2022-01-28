@@ -23,6 +23,7 @@ typing-extensions = "^3.10.0"
 progress = "^1.6"
 attrs = "^21.2.0"
 more-itertools = "^8.12.0"
+typer = "^0.4.0"
 
 [tool.poetry.dev-dependencies]
 black = "^21.10b0"

@@ -1,8 +1,9 @@
 """Utilities for converting Snakemake apps to BIDS apps."""
 
+import re
 from collections import OrderedDict
 from pathlib import Path
-from typing import Optional, Union
+from typing import List, Optional, Union
 
 
 # pylint: disable=too-many-arguments
@@ -197,6 +198,17 @@ def bids(
     return str(folder / filename)
 
 
+def main(root: Path, entities: List[str]):
+    matches = [re.match(r"^([^\d\W]\w*)=(?!.*=)(.*)$", value) for value in entities]
+    if all(matches):
+        print(
+            bids(
+                root,
+                **{str(m.group(1)): str(m.group(2)) for m in matches},  # type: ignore
+            )
+        )
+
+
 def print_boilerplate():
     """Function to print out boilerplate to add to Snakefile. (not used
     anywhere yet)"""
@@ -226,3 +238,9 @@ wildcard_constraints:  **snakebids.get_wildcard_constraints(
 # ---- end snakebids boilerplate --------------------------------------------
 """
     )
+
+
+if __name__ == "__main__":
+    import typer
+
+    typer.run(main)
