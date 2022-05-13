@@ -8,7 +8,7 @@ snakebids
 [![DOI](https://zenodo.org/badge/309495236.svg)](https://zenodo.org/badge/latestdoi/309495236)
 
 Snakemake + BIDS
-This package allows you to build BIDS Apps using Snakemake. It offers:
+This package allows you to build BIDS Apps using Snakemake. It's many features include:
 
 
 * Flexible data grabbing with PyBIDS, configurable solely by config file entries
