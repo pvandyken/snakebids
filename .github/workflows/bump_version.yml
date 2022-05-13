@@ -10,13 +10,15 @@ jobs:
       - name: Checkout master branch
         uses: actions/checkout@v2
         with:
-          ref: refs/heads/main
+          ref: ${{ github.event.pull_request.base.ref }}
 
       - name: Update changelog
         uses: release-drafter/release-drafter@v5
         id: release-drafter
+        with:
+          commitish: ${{ github.event.pull_request.base.ref }}
         env:
-          GITHUB_TOKEN: ${{ secrets.BP_PAT_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Get previous release version
         run: |
@@ -73,5 +75,6 @@ jobs:
       - name: Push changes
         uses: CasperWA/push-protected@v2
         with:
-          token: ${{ secrets.BP_PAT_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ github.event.pull_request.base.ref }}
           unprotect_reviews: True
