@@ -28,7 +28,7 @@ Snakebids uses `poethepoet <https://github.com/nat-n/poethepoet>`_ as a task run
 
     poetry run poe
 
-If you wish, you can also run ``poe [[command]]`` directly by installing ``poethepoet`` on your system. Follow the install instructions at the link above.
+If you wish, you can also run ``poe [[command]]`` directly by installing ``poethepoet`` on your system. Just follow the install instructions at the link above.
 
 Tests are done with ``pytest`` and can be run via::
 
