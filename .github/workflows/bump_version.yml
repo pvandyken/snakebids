@@ -10,13 +10,13 @@ jobs:
       - name: Checkout target branch
         uses: actions/checkout@v2
         with:
-          ref: refs/heads/${{ github.event.pull_request.pull_request.base.ref }}
+          ref: ${{ github.event.pull_request.base.ref }}
 
       - name: Update changelog
         uses: release-drafter/release-drafter@v5
         id: release-drafter
         with:
-          commitish: ${{ github.event.pull_request.pull_request.base.ref }}
+          commitish: ${{ github.event.pull_request.base.ref }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
