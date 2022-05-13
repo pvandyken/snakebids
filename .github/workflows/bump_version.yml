@@ -1,19 +1,25 @@
 name: Bump version
 on:
-  push:
-    branches:
-      - main
+  pull_request_target:
+    types: [closed]
 jobs:
   build:
+    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      
+      - name: Checkout target branch
+        uses: actions/checkout@v2
+        with:
+          ref: refs/heads/${{ github.event.pull_request.pull_request.base.ref }}
+
       - name: Update changelog
         uses: release-drafter/release-drafter@v5
         id: release-drafter
+        with:
+          commitish: ${{ github.event.pull_request.pull_request.base.ref }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 
       - name: Get previous release version
         run: |
@@ -38,12 +44,12 @@ jobs:
       - name: Set new release version
         env:
           RD_RELEASE: ${{ steps.release-drafter.outputs.name }}
-        run: | 
+        run: |
           if [ ! -z "$RD_RELEASE" ]; then
             echo "NEW_RELEASE=$RD_RELEASE" >> $GITHUB_ENV
           else
             echo "NEW_RELEASE=0.1.0" >> $GITHUB_ENV
-          fi 
+          fi
 
       - name: Update version in files
         uses: jacobtomlinson/gha-find-replace@master
