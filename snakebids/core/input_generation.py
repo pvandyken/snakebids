@@ -230,7 +230,7 @@ class BidsDataset(_BidsComponentsType):
 
         Returns
         -------
-        BidsDatasetDic
+        BidsDatasetDict
         """
         return BidsDatasetDict(
             input_path=self.input_path,
