@@ -18,6 +18,7 @@ from bids import BIDSLayout
 from bids.layout import Config as BidsConfig
 from hypothesis import assume, given
 from hypothesis import strategies as st
+from immutabledict import immutabledict as imdict
 
 from snakebids.core.construct_bids import bids
 from snakebids.core.input_generation import (
@@ -41,9 +42,9 @@ class TestBidsInputEq:
         assert input != other
 
     def test_empty_BidsInput_are_equal(self):
-        assert BidsComponent("", "", {}) == BidsComponent("", "", {})
-        assert BidsComponent("", "", {"foo": [], "bar": []}) == BidsComponent(
-            "", "", {"foo": [], "bar": []}
+        assert BidsComponent("", "", imdict()) == BidsComponent("", "", imdict())
+        assert BidsComponent("", "", imdict({"foo": [], "bar": []})) == BidsComponent(
+            "", "", imdict(foo=[], bar=[])
         )
 
     @given(stx.bids_input())
@@ -65,8 +66,7 @@ class TestBidsInputEq:
         new_entity = data.draw(
             stx.bids_value().filter(lambda s: s not in input.input_zip_lists)
         )
-        cp.input_zip_lists[new_entity] = []
-        next(iter(cp.input_zip_lists.values()))[0] += "foo"
+        cp.input_zip_lists._dict[new_entity] = []
         assert cp != input
 
     @given(stx.bids_input())
@@ -108,7 +108,7 @@ class TestBidsProperties:
         self,
         bids_entities: Dict[str, str],
     ):
-        zip_lists = {entity: [val] for entity, val in bids_entities.items()}
+        zip_lists = imdict({entity: [val] for entity, val in bids_entities.items()})
         bids_input = BidsComponent(
             input_name="foo", input_path="foo", input_zip_lists=zip_lists
         )
@@ -131,7 +131,7 @@ class TestAbsentConfigEntries:
             path = Path(bids(root, datatype="anat", suffix="T1w.nii.gz", **d))
             path.parent.mkdir(parents=True, exist_ok=True)
             path.touch()
-        return entities, zip_list
+        return entities, imdict(zip_list)
 
     def test_missing_filters(self, tmpdir: Path):
         entities, zip_list = self.get_entities(tmpdir)
@@ -178,7 +178,9 @@ class TestAbsentConfigEntries:
             pybids_config=str(Path(__file__).parent / "data" / "custom_config.json"),
             use_bids_inputs=True,
         )
-        template = BidsDataset({"t1": BidsComponent("t1", config.input_path["t1"], {})})
+        template = BidsDataset(
+            {"t1": BidsComponent("t1", config.input_path["t1"], imdict())}
+        )
         assert template == config
         assert config.subj_wildcards == {"subject": "{subject}"}
 
@@ -362,12 +364,14 @@ class TestCustomPaths:
 
         # Test with filters
         result_filtered = _parse_custom_path(test_path, **filters)
-        zip_lists = {
-            # Start with empty lists for each key, otherwise keys will be missing
-            **{key: [] for key in entities},
-            # Override entities with relevant filters before making zip lists
-            **get_zip_list(entities, it.product(*{**entities, **filters}.values())),
-        }
+        zip_lists = imdict(
+            {
+                # Start with empty lists for each key, otherwise keys will be missing
+                **{key: [] for key in entities},
+                # Override entities with relevant filters before making zip lists
+                **get_zip_list(entities, it.product(*{**entities, **filters}.values())),
+            }
+        )
         assert BidsComponent("foo", "foo", zip_lists) == BidsComponent(
             "foo", "foo", result_filtered
         )
@@ -395,12 +399,14 @@ class TestCustomPaths:
             entity: [value for value in values if value not in filters.get(entity, [])]
             for entity, values in entities.items()
         }
-        zip_lists = {
-            # Start with empty lists for each key, otherwise keys will be missing
-            **{key: [] for key in entities},
-            # Override entities with relevant filters before making zip lists
-            **get_zip_list(entities, it.product(*entities_excluded.values())),
-        }
+        zip_lists = imdict(
+            {
+                # Start with empty lists for each key, otherwise keys will be missing
+                **{key: [] for key in entities},
+                # Override entities with relevant filters before making zip lists
+                **get_zip_list(entities, it.product(*entities_excluded.values())),
+            }
+        )
 
         assert BidsComponent("foo", "foo", zip_lists) == BidsComponent(
             "foo", "foo", result_excluded
@@ -446,7 +452,7 @@ def test_custom_pybids_config(tmpdir: Path):
                     foo="{foo}",
                     suffix="T1w.nii.gz",
                 ),
-                {"foo": ["0", "1"], "subject": ["001", "001"]},
+                imdict(foo=["0", "1"], subject=["001", "001"]),
             )
         }
     )
@@ -493,7 +499,7 @@ def test_t1w():
             "t1": BidsComponent(
                 "t1",
                 result.input_path["t1"],
-                {"acq": ["mprage", "mprage"], "subject": ["001", "002"]},
+                imdict(acq=["mprage", "mprage"], subject=["001", "002"]),
             )
         }
     )
@@ -531,17 +537,7 @@ def test_t1w():
             "scan": BidsComponent(
                 "scan",
                 result.input_path["scan"],
-                {
-                    "acq": [
-                        "mprage",
-                    ],
-                    "subject": [
-                        "001",
-                    ],
-                    "suffix": [
-                        "T1w",
-                    ],
-                },
+                imdict(acq=["mprage"], subject=["001"], suffix=["T1w"]),
             )
         }
     )
@@ -597,13 +593,10 @@ def test_t1w():
                 "t1": BidsComponent(
                     "t1",
                     result.input_path["t1"],
-                    {
-                        "acq": ["mprage", "mprage"],
-                        "subject": ["001", "002"],
-                    },
+                    imdict(acq=["mprage", "mprage"], subject=["001", "002"]),
                 ),
                 "t2": BidsComponent(
-                    "t2", result.input_path["t2"], {"subject": ["002"]}
+                    "t2", result.input_path["t2"], imdict(subject=["002"])
                 ),
             }
         )
@@ -718,10 +711,7 @@ def test_get_lists_from_bids():
                 template = BidsComponent(
                     "t1",
                     wildcard_path_t1,
-                    {
-                        "acq": ["mprage", "mprage"],
-                        "subject": ["001", "002"],
-                    },
+                    imdict(acq=["mprage", "mprage"], subject=["001", "002"]),
                 )
                 assert template == bids_lists
             elif bids_lists.input_name == "t2":
@@ -729,9 +719,9 @@ def test_get_lists_from_bids():
                 template = BidsComponent(
                     "t2",
                     wildcard_path_t2,
-                    {
-                        "subject": ["002"],
-                    },
+                    imdict(
+                        subject=["002"],
+                    ),
                 )
                 assert template == bids_lists
 

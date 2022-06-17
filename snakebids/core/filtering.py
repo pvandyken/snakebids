@@ -3,6 +3,7 @@ import re
 from typing import Dict, List, TypeVar, Union, overload
 
 import more_itertools as itx
+from immutabledict import immutabledict
 from typing_extensions import Literal
 
 from snakebids.utils.utils import matches_any
@@ -10,20 +11,22 @@ from snakebids.utils.utils import matches_any
 # pylint: disable=invalid-name
 T_co = TypeVar("T_co", bound=Union[List[str], str], covariant=True)
 
+_ZipListType = Union[Dict[str, List[str]], immutabledict[str, List[str]]]
+
 
 @overload
 def filter_list(
-    zip_list,
+    zip_list: _ZipListType,
     filters: Dict[str, T_co],
     return_indices_only: Literal[False] = ...,
     regex_search: bool = ...,
-) -> Dict[str, List[str]]:
+) -> immutabledict[str, List[str]]:
     ...
 
 
 @overload
 def filter_list(
-    zip_list,
+    zip_list: _ZipListType,
     filters: Dict[str, T_co],
     return_indices_only: Literal[True] = ...,
     regex_search: bool = ...,
@@ -32,7 +35,7 @@ def filter_list(
 
 
 def filter_list(
-    zip_list: Dict[str, List[str]],
+    zip_list: _ZipListType,
     filters: Dict[str, T_co],
     return_indices_only: bool = False,
     regex_search=False,
@@ -153,7 +156,9 @@ def filter_list(
     # Now we have the indices, so filter the lists
     if return_indices_only:
         return list(keep_indices)
-    return {key: [val[i] for i in keep_indices] for key, val in zip_list.items()}
+    return immutabledict(
+        {key: [val[i] for i in keep_indices] for key, val in zip_list.items()}
+    )
 
 
 def get_filtered_ziplist_index(zip_list, wildcards, subj_wildcards):
@@ -253,7 +258,7 @@ def get_filtered_ziplist_index(zip_list, wildcards, subj_wildcards):
     return indices
 
 
-def _get_zip_list_indices(zip_list: Dict[str, List[str]]):
+def _get_zip_list_indices(zip_list: _ZipListType):
     """Convert a zip_list into its indices
 
     Generates a sequence of numbers from 0 up to the length of the zip_lists. For

@@ -25,6 +25,7 @@ import attr
 import more_itertools as itx
 from bids import BIDSLayout, BIDSLayoutIndexer
 from cached_property import cached_property
+from immutabledict import immutabledict
 from typing_extensions import Literal, TypedDict
 
 from snakebids.core.filtering import filter_list
@@ -71,7 +72,9 @@ class BidsComponent:
 
     input_name: str = attr.field(on_setattr=attr.setters.frozen)
     input_path: str = attr.field(on_setattr=attr.setters.frozen)
-    input_zip_lists: Dict[str, List[str]] = attr.field(on_setattr=attr.setters.frozen)
+    input_zip_lists: immutabledict[str, List[str]] = attr.field(
+        on_setattr=attr.setters.frozen
+    )
 
     _input_lists: Optional[Dict[str, List[str]]] = attr.field(default=None, init=False)
     _input_wildcards: Optional[Dict[str, str]] = attr.field(default=None, init=False)
@@ -107,7 +110,7 @@ class BidsComponent:
         if not isinstance(other, BidsComponent):
             return False
 
-        def sorted_items(dictionary: Dict[str, List[str]]):
+        def sorted_items(dictionary: immutabledict[str, List[str]]):
             return sorted(dictionary.items(), key=op.itemgetter(0))
 
         if set(self.input_zip_lists) != set(other.input_zip_lists):
@@ -248,7 +251,9 @@ class BidsDataset(_BidsComponentsType):
             input_path=self.input_path,
             input_lists=self.input_lists,
             input_wildcards=self.input_wildcards,
-            input_zip_lists=self.input_zip_lists,
+            input_zip_lists={
+                label: dict(values) for label, values in self.input_zip_lists.items()
+            },
             subjects=self.subjects,
             sessions=self.sessions,
             subj_wildcards=self.subj_wildcards,
@@ -697,7 +702,7 @@ def _parse_custom_path(
     input_path: Union[Path, str],
     regex_search: bool = False,
     **filters: Union[List[str], str],
-):
+) -> immutabledict[str, List[str]]:
     """Glob wildcards from a custom path and apply filters
 
     This replicates pybids path globbing for any custom path. Input path should have
@@ -736,7 +741,7 @@ def _parse_custom_path(
     #       only been performed on input_lists
     if len(wildcards[0]) == 0:
         _logger.error("No matching files for %s", input_path)
-        return input_zip_lists
+        return immutabledict()
 
     # Loop through every wildcard name
     for i, wildcard in enumerate(wildcard_names):
@@ -907,7 +912,7 @@ def _get_lists_from_bids(
 
         input_path = list(paths)[0]
 
-        yield BidsComponent(input_name, input_path, input_zip_lists)
+        yield BidsComponent(input_name, input_path, immutabledict(input_zip_lists))
 
 
 def get_wildcard_constraints(image_types):

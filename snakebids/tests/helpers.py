@@ -4,6 +4,8 @@
 from collections import UserDict
 from typing import Any, Dict, Iterable, List, Tuple
 
+from immutabledict import immutabledict
+
 
 def get_zip_list(entities: Iterable[str], combinations: Iterable[Tuple[str, ...]]):
     """Return a zip list from iterables of entities and value combinations
@@ -21,7 +23,9 @@ def get_zip_list(entities: Iterable[str], combinations: Iterable[Tuple[str, ...]
     Dict[str, List[str]]
         zip_list representation of entity-value combinations
     """
-    return {entity: list(combs) for entity, combs in zip(entities, zip(*combinations))}
+    return immutabledict(
+        {entity: list(combs) for entity, combs in zip(entities, zip(*combinations))}
+    )
 
 
 def setify(dic: Dict[Any, List[Any]]):

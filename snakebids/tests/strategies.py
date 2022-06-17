@@ -1,8 +1,9 @@
 import itertools as it
-from typing import Any, Dict, List, Type, cast
+from typing import Any, List, Type, cast
 
 import hypothesis.strategies as st
 from bids.layout import Config as BidsConfig
+from immutabledict import immutabledict
 
 from snakebids import BidsComponent, bids
 from snakebids.tests.helpers import get_zip_list
@@ -27,7 +28,7 @@ def bids_entity_list(min_size: int = 1):
     )
 
 
-def get_bids_path(zip_lists: Dict[str, List[str]]):
+def get_bids_path(zip_lists: immutabledict[str, List[str]]):
     return bids(root=".", **{entity: f"{{{entity}}}" for entity in zip_lists})
 
 
@@ -57,7 +58,7 @@ def bids_input(draw: st.DrawFn):
     return BidsComponent(
         input_name=draw(bids_value()),
         input_path=path,
-        input_zip_lists=zip_lists,
+        input_zip_lists=immutabledict(zip_lists),
     )
 
 
