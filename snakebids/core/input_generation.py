@@ -50,8 +50,10 @@ class BidsDatasetDict(TypedDict):
 class BidsComponent:
     """Component of a BidsDataset mapping entities to their resolved values
 
-    Attributes
+    Properties
     ----------
+    input_name
+        Name of the component
     input_path
         Wildcard-filled path that matches the files for this component.
     input_zip_lists
@@ -59,12 +61,12 @@ class BidsComponent:
         values found for that entity. Each of these lists has length equal to the number
         of images matched for this modality, so they can be zipped together to get a
         list of the wildcard values for each file.
-    input_lists
-        Dictionary where each key is a wildcard entity and each value is a list of the
-        unique values found for that entity. These lists might not be the same length.
-    input_wildcards
-        Dictionary where each key is the name of a wildcard entity, and each value is
-        the Snakemake wildcard used for that entity.
+
+    Attributes
+    ----------
+    input_name
+    input_path
+    input_zip_lists
     """
 
     input_name: str = attr.field(on_setattr=attr.setters.frozen)
@@ -76,6 +78,11 @@ class BidsComponent:
 
     @property
     def input_lists(self):
+        """Compact list reprentation of values
+
+        Dictionary where each key is a wildcard entity and each value is a list of the
+        unique values found for that entity. These lists might not be the same length.
+        """
         if self._input_lists is None:
             self._input_lists = {
                 entity: list(set(values))
@@ -85,6 +92,11 @@ class BidsComponent:
 
     @property
     def input_wildcards(self):
+        """Wildcards in brace-wrapped syntax
+
+        Dictionary where each key is the name of a wildcard entity, and each value is
+        the Snakemake wildcard used for that entity.
+        """
         if self._input_wildcards is None:
             self._input_wildcards = {
                 entity: f"{{{entity}}}" for entity in self.input_zip_lists
