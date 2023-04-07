@@ -10,7 +10,7 @@ import pytest
 from configargparse import Namespace
 from pytest_mock.plugin import MockerFixture
 
-from snakebids.cli import (
+from snakebids.app.cli import (
     _resolve_path,
     add_dynamic_args,
     create_parser,

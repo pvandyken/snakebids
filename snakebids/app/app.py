@@ -5,19 +5,21 @@ import argparse
 import logging
 import sys
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import attr
 import boutiques.creator as bc
 import snakemake
 from snakemake.io import load_configfile
+from typing_extensions import Self
 
-from snakebids.cli import (
+from snakebids.app.cli import (
     SnakebidsArgs,
     add_dynamic_args,
     create_parser,
     parse_snakebids_args,
 )
+from snakebids.app.plugin import Pluggable, PluginTypes, pipe, register_plugins, stage
 from snakebids.exceptions import ConfigError, RunError
 from snakebids.utils.output import (
     prepare_bidsapp_output,
@@ -68,54 +70,54 @@ def _get_file_paths(choices: List[str], file_name: str):
     return wrapper
 
 
+# pylint: disable=unsubscriptable-object, unsupported-assignment-operation,
 @attr.define(slots=False)
-class SnakeBidsApp:
+class SnakeBidsApp(Pluggable):
     """Snakebids app with config and arguments.
 
-    Parameters
+    Attributes
     ----------
-    snakemake_dir : str | Path
+    snakemake_dir : str
         Root directory of the snakebids app, containing the config file and workflow
         files.
-    parser
+    parser : ArgumentParser, optional
         Parser including only the arguments specific to this Snakebids app, as specified
         in the config file. By default, it will use `create_parser()` from `cli.py`
-    configfile_path
+    configfile_path : str, optional
         Relative path to config file (relative to snakemake_dir). By default,
         autocalculates based on snamake_dir
-    snakefile_path
+    snakefile_path : str, optional
         Absolute path to the input Snakefile. By default, autocalculates based on
         snakemake_dir::
 
             join(snakemake_dir, snakefile_path)
-    config
+    config : dict, optional
         Contains all the configuration variables parsed from the config file
         and generated during the initialization of the SnakeBidsApp.
-    args
+    args : SnakebidsArgs, optional
         Arguments to use when running the app. By default, generated using the parser
         attribute, autopopulated with args from `config.py`
-    plugins
-        List of methods to be called after CLI parsing.
+    plugins:
+        Supply list of methods to be called after CLI parsing.
 
-        Each callable in ``plugins`` should take, as a single argument, a reference to
-        the ``SnakeBidsApp``. Plugins may perform any arbitrary side effects, including
-        updates to the config dictionary, validation of inputs, optimization, or other
-        enhancements to the snakebids app.
+        Each callable in ``plugins`` should take, as a single argument, a
+        reference to the ``SnakeBidsApp``. Plugins may perform any arbitrary
+        side effects, including updates to the config dictionary, validation
+        of inputs, optimization, or other enhancements to the snakebids app.
 
-        CLI parameters may be read from ``SnakeBidsApp.config``. Plugins are responsible
-        for documenting what properties they expect to find in the config.
+        CLI parameters may be read from ``SnakeBidsApp.config``. Plugins
+        are responsible for documenting what properties they expect to find
+        in the config.
 
         Every plugin should return either:
 
-        - Nothing, in which case any changes to the SnakeBidsApp will persist in the
-          workflow.
-        - A ``SnakeBidsApp``, which will replace the existing instance, so this option
-          should be used with care.
-
+            - Nothing, in which case any changes to the SnakeBidsApp will
+              persist in the workflow.
+            - A ``SnakeBidsApp``, which will replace the existing instance,
+              so this option should be used with care.
     """
 
     snakemake_dir: Path = attr.ib(converter=lambda path: Path(path).resolve())
-    plugins: list[Callable[[SnakeBidsApp], None | SnakeBidsApp]] = attr.Factory(list)
     skip_parse_args: bool = False
     parser: argparse.ArgumentParser = create_parser()
     configfile_path: Path = attr.Factory(
@@ -129,51 +131,85 @@ class SnakeBidsApp:
         takes_self=True,
     )
     args: Optional[SnakebidsArgs] = None
+    cwd: Path = attr.Factory(lambda self: self.snakemake_dir, takes_self=True)
+    output_config: Path = attr.Factory(
+        lambda self: self.snakemake_dir / self.configfile_path, takes_self=True
+    )
+    plugins: list[PluginTypes[Self]] = attr.Factory(list)
 
-    def run_snakemake(self) -> None:
-        """Run snakemake with the given config, after applying plugins"""
+    def run_snakemake(self):
+        """Run snakemake with that config.
+
+        Workflow snakefile will read snakebids config, create inputs_config,
+        and read that in.
+        """
+
+        app = self
+        register_plugins(self, self.plugins, SnakeBidsApp.write_config.pre)
 
         # If no SnakebidsArgs were provided on class instantiation, we compute args
         # using the provided parser
-        if self.args:
-            args = self.args
-        else:
+        if not app.args:
             # Dynamic args include --filter-... and --wildcards-... . They depend on the
             # config
-            add_dynamic_args(
-                self.parser, self.config["parse_args"], self.config["pybids_inputs"]
-            )
-            args = parse_snakebids_args(self.parser)
+            app = pipe(
+                [
+                    self.add_arguments,
+                    self.parse_args,
+                ]
+            )(app)
 
-        # Update our config file:
-        # - Add path to snakefile to the config so workflows can grab files relative to
-        #    the snakefile folder
-        # - Add info from args
-        # - Set mode (bidsapp or workflow) and output_dir appropriately
+        app = pipe(
+            [
+                self.update_config,
+                self.prepare_output_dir,
+                self.write_config,
+                self.do_snakemake,
+            ]
+        )(app)
+
+    @stage
+    def add_arguments(self):
+        add_dynamic_args(
+            self.parser, self.config["parse_args"], self.config["pybids_inputs"]
+        )
+
+    @stage
+    def parse_args(self):
+        parse_snakebids_args(self.parser)
+
+    @stage
+    def update_config(self):
+        """Update our config file:
+
+        - Add path to snakefile to the config so workflows can grab files relative to
+           the snakefile folder
+        - Add info from args
+        """
+        assert self.args
         self.config["snakemake_dir"] = self.snakemake_dir
         self.config["snakefile"] = self.snakefile_path
 
         # Update config with pybids settings
-        if args.pybidsdb_dir:
-            self.config["pybids_db_dir"] = args.pybidsdb_dir
-        self.config["pybids_db_reset"] = args.reset_db
+        if self.args.pybidsdb_dir:
+            self.config["pybids_db_dir"] = self.args.pybidsdb_dir
+        self.config["pybids_db_reset"] = self.args.reset_db
+        update_config(self.config, self.args)
 
-        update_config(self.config, args)
-
+    @stage
+    def prepare_output_dir(self):
+        assert self.args
         # First, handle outputs in snakebids_root or results folder
         try:
             # py3.9 has the Path.is_relative() function. But as long as we support py38
             # and lower, this is the easiest way
-            args.outputdir.resolve().relative_to(self.snakemake_dir / "results")
+            self.args.outputdir.resolve().relative_to(self.snakemake_dir / "results")
             relative_to_results = True
         except ValueError:
             relative_to_results = False
 
-        if self.snakemake_dir == args.outputdir.resolve() or relative_to_results:
+        if self.snakemake_dir == self.args.outputdir.resolve() or relative_to_results:
             write_output_mode(self.snakemake_dir / ".snakebids", "workflow")
-
-            new_config_file = self.snakemake_dir / self.configfile_path
-            cwd = self.snakemake_dir
 
             if self.config["output_dir"] == self.snakemake_dir.resolve():
                 self.config["output_dir"] /= "results"
@@ -193,42 +229,43 @@ class SnakeBidsApp:
             # Attempt to prepare the output folder. Anything going wrong will raise a
             # RunError, as described in the docstring
             try:
-                prepare_bidsapp_output(args.outputdir, args.force)
+                prepare_bidsapp_output(self.args.outputdir, self.args.force)
             except RunError as err:
                 print(err.msg)
                 sys.exit(1)
-            cwd = args.outputdir
-            new_config_file = args.outputdir / self.configfile_path
+            self.cwd = self.args.outputdir
+            self.output_config = self.args.outputdir / self.configfile_path
             self.config["root"] = ""
 
-        app = self
-        for plugin in self.plugins:
-            app = plugin(app) or app
-
-        # Write the config file
+    @stage
+    def write_config(self):
         write_config_file(
-            config_file=new_config_file,
-            data=app.config,
+            config_file=self.output_config,
+            data=self.config,
             force_overwrite=True,
         )
 
-        # Run snakemake (passing any leftover args from argparse)
-        # Filter any blank strings before submitting
+    @stage
+    def do_snakemake(self):
+        """Run snakemake (passing any leftover args from argparse)
+
+        Filter any blank strings before submitting
+        """
         snakemake.main(
             [
                 *filter(
                     None,
                     [
-                        *app.config["targets_by_analysis_level"][
-                            app.config["analysis_level"]
+                        *self.config["targets_by_analysis_level"][
+                            self.config["analysis_level"]
                         ],
                         "--snakefile",
-                        str(app.snakefile_path),
+                        str(self.snakefile_path),
                         "--directory",
-                        str(cwd),
+                        str(self.cwd),
                         "--configfile",
-                        str(new_config_file.resolve()),
-                        *app.config["snakemake_args"],
+                        str(self.output_config.resolve()),
+                        *self.config["snakemake_args"],
                     ],
                 )
             ]

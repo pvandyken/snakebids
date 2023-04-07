@@ -5,7 +5,7 @@ from cookiecutter.main import cookiecutter
 
 import snakebids
 from snakebids.app import SnakeBidsApp
-from snakebids.cli import SnakebidsArgs
+from snakebids.app.cli import SnakebidsArgs
 
 
 def test_template_dry_runs_successfully(tmp_path):

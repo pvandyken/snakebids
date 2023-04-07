@@ -10,11 +10,11 @@ import snakemake
 from hypothesis import HealthCheck, assume, example, given, settings
 from pytest_mock.plugin import MockerFixture
 
-from snakebids.cli import SnakebidsArgs
-
-from .. import app as sn_app
-from ..app import SnakeBidsApp
-from .mock.config import config
+from snakebids.app import SnakeBidsApp
+from snakebids.app import app as sn_app
+from snakebids.app.cli import SnakebidsArgs
+from snakebids.plugins.version import Version
+from snakebids.tests.mock.config import config
 
 
 @pytest.fixture
@@ -160,6 +160,29 @@ class TestRunSnakemake:
                 str(new_config),
             ]
         )
+
+    def test_version(self, mocker: MockerFixture, app: SnakeBidsApp):
+        # Get mocks for all the io functions
+        self.io_mocks(mocker)
+        mocker.patch.object(
+            sn_app,
+            "update_config",
+            side_effect=lambda config, sn_args: config.update(sn_args.args_dict),
+        )
+        mocker.patch("sys.argv", ["snakebids", "-v"])
+        # app.args = SnakebidsArgs(
+        #     force=False,
+        #     outputdir=output_dir,
+        #     snakemake_args=[],
+        #     args_dict={"output_dir": output_dir.resolve()},
+        # )
+        app.plugins.append(Version("snakebids", "Snakebids"))
+
+        app.run_snakemake()
+        assert "plugin.version.get_version" in config
+        # except SystemExit as e:
+        #     print("System exited prematurely")
+        #     print(e)
 
     def test_plugins(self, mocker: MockerFixture, app: SnakeBidsApp):
         # Get mocks for all the io functions

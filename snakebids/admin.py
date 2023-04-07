@@ -7,7 +7,7 @@ from cookiecutter.main import cookiecutter
 
 import snakebids
 from snakebids.app import SnakeBidsApp
-from snakebids.cli import add_dynamic_args
+from snakebids.app.cli import add_dynamic_args
 
 
 def create_app(args):
@@ -55,7 +55,7 @@ def gen_parser():
     return parser
 
 
-def main():
+def stage():
     """Invoke Cookiecutter on the Snakebids project template."""
 
     parser = gen_parser()

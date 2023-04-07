@@ -10,10 +10,10 @@ def get_parser():
     return app.parser
 
 
-def main():
+def stage():
     app = SnakeBidsApp(Path(__file__).resolve().parent.parent)  # to get repository root
     app.run_snakemake()
 
 
 if __name__ == "__main__":
-    main()
+    stage()
