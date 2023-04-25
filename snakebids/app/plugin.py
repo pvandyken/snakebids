@@ -43,39 +43,40 @@ class Pluggable:
 class Plugin(Generic[_P]):
     __plugin_stages__: dict[str, BoundMutator[Self, _P]]
 
-    def pre(self, __mut: Stage[_P]):
-        def inner(__func: Mutator[_P]):
-            return BoundMutator[Plugin[_P], _P](
-                "pre", lambda _, state: __func(state), __mut.name
-            )
-
-        return inner
-
-    def post(self, __mut: Stage[_P]):
-        def inner(__func: Mutator[_P]):
-            return BoundMutator[Plugin[_P], _P](
-                "post", lambda _, state: __func(state), __mut.name
-            )
-
-        return inner
-
 
 def stage(__func: Mutator[_P]):
     return Stage(__func)
 
 
-def pre(__mut: Stage[_P]):
-    def inner(__func: MutatorMethod[_L, _P]):
-        return BoundMutator[_L, _P]("pre", __func, __mut.name)
+@attrs.define
+class PluginGenerator(Generic[_P]):
+    stage: Stage
+    timing: Timing
 
-    return inner
+    def __call__(self, __func: MutatorMethod[_L, _P]):
+        return BoundMutator[_L, _P](self.timing, __func, self.stage.name)
+
+    def bind(
+        self,
+        config: type[_L] ,
+        name: str = "",
+    ) -> Callable[[MutatorMethod[_L, _P]], BoundMutator[_L, _P]]:
+        def inner(__func: MutatorMethod[_L, _P]):
+            bound = BoundMutator(
+                self.timing, __func, self.stage.name
+            )
+            get_stage(config)[name] = cast("BoundMutator[Plugin[Any], Any]", bound)
+            return bound
+
+        return inner
 
 
-def post(__mut: Stage[_P]):
-    def inner(__func: MutatorMethod[_L, _P]):
-        return BoundMutator[_L, _P]("post", __func, __mut.name)
+def pre(__stage: Stage[_P]) -> PluginGenerator[_P]:
+    return PluginGenerator(__stage, "pre")
 
-    return inner
+
+def post(__stage: Stage[_P]) -> PluginGenerator[_P]:
+    return PluginGenerator(__stage, "post")
 
 
 @attrs.define
@@ -169,7 +170,7 @@ class BoundMutator(Generic[_L, _P]):
 PluginTypes: TypeAlias = "Plugin[_P] | Mutator[_P]"
 
 
-def get_stage(self: _Staged[_T]) -> dict[str, _T]:
+def get_stage(self: _Staged[_T] | type[_Staged[_T]]) -> dict[str, _T]:
     if not hasattr(self, "__plugin_stages__"):
         self.__plugin_stages__ = {}
     return self.__plugin_stages__

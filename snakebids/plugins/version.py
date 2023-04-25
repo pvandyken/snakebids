@@ -27,6 +27,7 @@ def exiting_action(callback: ActionCallback):
             option_string: str | None = None,
         ):
             callback(parser, namespace, values, option_string)
+            sys.exit(0)
 
     return ExitingAction
 
@@ -40,7 +41,6 @@ class Version(Plugin[App]):
 
     def print_version(self, *args: Any):
         print(self.software_name, "-", f"v{metadata.version(self.distribution)}")
-        sys.exit(1)
 
     @pre(App.add_arguments)
     def add_version_arg(self, app: App):
@@ -51,3 +51,7 @@ class Version(Plugin[App]):
             action=exiting_action(self.print_version),
             nargs=0,
         )
+
+@(pre(App.add_arguments).bind)
+def something(app: App):
+    ...
