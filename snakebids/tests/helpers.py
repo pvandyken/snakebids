@@ -181,6 +181,8 @@ def create_dataset(root: str | Path, dataset: BidsDataset) -> None:
         for path in map(Path(root).joinpath, component.expand()):
             path.parent.mkdir(parents=True, exist_ok=True)
             path.touch()
+            if path.suffix == ".json":
+                path.write_text("{}")
 
 
 def create_snakebids_config(dataset: BidsDataset) -> InputsConfig:
