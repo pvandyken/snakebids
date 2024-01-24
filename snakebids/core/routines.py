@@ -1,12 +1,32 @@
 from __future__ import annotations
 
+import itertools as it
+import re
+import string
 from collections.abc import Iterator, Mapping
-from typing import Iterable, List, Literal, TypeVar, Union, overload
+from typing import (
+    TYPE_CHECKING,
+    Callable,
+    Iterable,
+    List,
+    Literal,
+    TypeVar,
+    Union,
+    overload,
+)
 
 import more_itertools as itx
 
 from snakebids.types import ZipList, ZipListLike
-from snakebids.utils.containers import ContainerBag, MultiSelectDict, RegexContainer
+from snakebids.utils.containers import (
+    ContainerBag,
+    MultiSelectDict,
+    RegexContainer,
+    UserDictPy38,
+)
+
+if TYPE_CHECKING:
+    from _typeshed import StrPath
 
 T_co = TypeVar("T_co", bound=Union[List[str], str], covariant=True)
 
@@ -286,3 +306,72 @@ def _get_zip_list_indices(zip_list: ZipListLike) -> Iterator[int]:
     # Return a sequence of numbers 0, 1, 2, 3, ... n-1 where n is the length of the
     # zip list
     yield from range(len(sample_zip_list))
+
+
+class expand:
+    def __init__(
+        self,
+        pattern: StrPath | Iterable[StrPath],
+        combinator: Callable[..., Iterator[tuple[str, str]]] | None = None,
+        /,
+        **wildcards: str | Iterable[str] | bool,
+    ):
+        """
+        Expand wildcards in given filepatterns.
+
+        Arguments
+        *args -- first arg: filepatterns as list or one single filepattern,
+            second arg (optional): a function to combine wildcard values
+            (itertools.product per default)
+        **wildcards -- the wildcards as keyword arguments
+            with their values as lists. If allow_missing=True is included
+            wildcards in filepattern without values will stay unformatted.
+        """
+        if combinator is None:
+            combinator = it.product
+
+        pattern = [str(p) for p in itx.always_iterable(pattern)]
+
+        # check if remove missing is provided
+        format_dict = dict
+        if "allow_missing" in wildcards and wildcards["allow_missing"] is True:
+
+            class FormatDict(UserDictPy38[str, str]):
+                def __missing__(self, key: str):
+                    return "{" + key + "}"
+
+            format_dict = FormatDict
+            # check that remove missing is not a wildcard in the filepatterns
+            for filepattern in pattern:
+                if "allow_missing" in re.findall(r"{([^}\.[!:]+)", filepattern):
+                    format_dict = dict
+                    break
+
+        # raise error if function is passed as value for any wildcard
+        for key, value in wildcards.items():
+            if callable(value):
+                msg = (
+                    f"Callable/function {value} is passed as value for {key} in 'expand' "
+                    "statement. This is most likely not what you want, as expand takes "
+                    "iterables of values or single values for its arguments. If you want "
+                    "to use a function to generate the values, you can wrap the entire "
+                    "expand in another function that does the computation."
+                )
+                raise TypeError(msg)
+
+        # remove unused wildcards to avoid duplicate filepatterns
+        grouped = {
+            filepattern: [
+                [(key, v) for v in itx.always_iterable(value)]
+                for key, value in wildcards.items()
+                if key in re.findall(r"{([^}\.[!:]+)", filepattern)
+            ]
+            for filepattern in pattern
+        }
+
+        formatter = string.Formatter()
+        return [
+            formatter.vformat(filepattern, (), comb)
+            for filepattern in pattern
+            for comb in map(format_dict, combinator(*grouped[filepattern]))
+        ]

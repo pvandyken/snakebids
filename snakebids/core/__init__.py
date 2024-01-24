@@ -14,9 +14,7 @@ __all__ = [
     "BidsDataset",
     "BidsDatasetDict",
     "BidsPartialComponent",
-    "filter_list",
     "generate_inputs",
-    "get_filtered_ziplist_index",
     "get_wildcard_constraints",
     "write_derivative_json",
 ]
