@@ -1,8 +1,7 @@
 # type: ignore
-__submodules__ = ["filtering", "input_generation", "datasets"]
+__submodules__ = ["routines", "input_generation", "datasets"]
 
 __ignore__ = ["T_co"]
-
 
 # <AUTOGEN_INIT>
 import lazy_loader

@@ -17,7 +17,7 @@ from snakemake.io import expand as sn_expand
 from typing_extensions import Self, TypedDict
 
 import snakebids.utils.sb_itertools as sb_it
-from snakebids.core.filtering import filter_list
+from snakebids.core.routines import filter_list
 from snakebids.exceptions import DuplicateComponentError
 from snakebids.io.console import get_console_size
 from snakebids.io.printing import format_zip_lists, quote_wrap

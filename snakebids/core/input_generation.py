@@ -26,7 +26,7 @@ from snakebids.core._querying import (
     get_matching_files,
 )
 from snakebids.core.datasets import BidsComponent, BidsDataset, BidsDatasetDict
-from snakebids.core.filtering import filter_list
+from snakebids.core.routines import filter_list
 from snakebids.exceptions import (
     ConfigError,
     DuplicateComponentError,

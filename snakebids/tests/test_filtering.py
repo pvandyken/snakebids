@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from snakebids.core.filtering import filter_list
+from snakebids.core.routines import filter_list
 from snakebids.types import ZipList
 
 

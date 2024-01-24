@@ -5,14 +5,14 @@ from .datasets import (
     BidsDatasetDict,
     BidsPartialComponent,
 )
-from .filtering import (
-    filter_list,
-    get_filtered_ziplist_index,
-)
 from .input_generation import (
     generate_inputs,
     get_wildcard_constraints,
     write_derivative_json,
+)
+from .routines import (
+    filter_list,
+    get_filtered_ziplist_index,
 )
 
 __all__ = [
