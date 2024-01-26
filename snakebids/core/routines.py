@@ -14,6 +14,7 @@ from typing import (
     Union,
     overload,
 )
+from typing_extensions import Final
 
 import more_itertools as itx
 
@@ -308,7 +309,9 @@ def _get_zip_list_indices(zip_list: ZipListLike) -> Iterator[int]:
     yield from range(len(sample_zip_list))
 
 
-class expand:
+class Expander:
+    FORMATTER: Final[type[Mapping[str, str]]] = dict
+
     def __init__(
         self,
         pattern: StrPath | Iterable[StrPath],
@@ -327,25 +330,21 @@ class expand:
             with their values as lists. If allow_missing=True is included
             wildcards in filepattern without values will stay unformatted.
         """
-        if combinator is None:
-            combinator = it.product
+        self.pattern = [str(p) for p in itx.always_iterable(pattern)]
+        self.combinator = it.product if combinator is None else combinator
 
-        pattern = [str(p) for p in itx.always_iterable(pattern)]
+        # if "allow_missing" in wildcards and wildcards["allow_missing"] is True:
 
-        # check if remove missing is provided
-        format_dict = dict
-        if "allow_missing" in wildcards and wildcards["allow_missing"] is True:
+        #     class FormatDict(UserDictPy38[str, str]):
+        #         def __missing__(self, key: str):
+        #             return "{" + key + "}"
 
-            class FormatDict(UserDictPy38[str, str]):
-                def __missing__(self, key: str):
-                    return "{" + key + "}"
-
-            format_dict = FormatDict
-            # check that remove missing is not a wildcard in the filepatterns
-            for filepattern in pattern:
-                if "allow_missing" in re.findall(r"{([^}\.[!:]+)", filepattern):
-                    format_dict = dict
-                    break
+        #     format_dict = FormatDict
+        #     # check that remove missing is not a wildcard in the filepatterns
+        #     for filepattern in pattern:
+        #         if "allow_missing" in re.findall(r"{([^}\.[!:]+)", filepattern):
+        #             format_dict = dict
+        #             break
 
         # raise error if function is passed as value for any wildcard
         for key, value in wildcards.items():
@@ -360,18 +359,26 @@ class expand:
                 raise TypeError(msg)
 
         # remove unused wildcards to avoid duplicate filepatterns
-        grouped = {
-            filepattern: [
+        self._keys: dict[str, set[str]] = {
+            p: set(re.findall(r"{([^}\.[!:]+)", p)) for p in self.pattern
+        }
+        self.wildcards = {
+            p: [
                 [(key, v) for v in itx.always_iterable(value)]
                 for key, value in wildcards.items()
-                if key in re.findall(r"{([^}\.[!:]+)", filepattern)
+                if key in self._keys[p]
             ]
-            for filepattern in pattern
+            for p in self.pattern
         }
 
-        formatter = string.Formatter()
+    def __getitem__(self, index: int):
+
+
+    def __iter__(self):
         return [
-            formatter.vformat(filepattern, (), comb)
-            for filepattern in pattern
-            for comb in map(format_dict, combinator(*grouped[filepattern]))
+            filepattern.format_map(comb)
+            for filepattern in self.pattern
+            for comb in map(
+                self.FORMATTER, self.combinator(*self.wildcards[filepattern])
+            )
         ]
