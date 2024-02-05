@@ -5,7 +5,7 @@ import logging
 import pathlib
 import re
 from collections.abc import Sequence
-from typing import Any, Mapping, TypeVar, overload
+from typing import Any, Mapping, TypeVar, cast, overload
 
 import attr
 import snakemake
@@ -43,9 +43,12 @@ class FilterParse(argparse.Action):
         for pair in values:
             if "=" in pair:
                 # split it into key and value
-                key, value = pair.split("=", 1)
-            elif ":" in pair:
-                key, spec = pair.split(":", 1)
+                key, value = cast("tuple[str, str]", pair.split("=", 1))
+            else:
+                key = pair
+                value = None
+            if ":" in key:
+                key, spec = cast("tuple[str, str]", pair.split(":", 1))
                 spec = spec.lower()
                 if spec == "optional":
                     value = OptionalFilter
@@ -53,10 +56,12 @@ class FilterParse(argparse.Action):
                     value = True
                 elif spec == "none":
                     value = False
+                elif spec in {"match", "search"} and value is not None:
+                    value = {spec: value}
                 else:
-                    # The flag isn't recognized
-                    raise MisspecifiedCliFilterError(pair)
-            else:
+                    value = None
+            if value is None:
+                # The flag isn't recognized
                 raise MisspecifiedCliFilterError(pair)
 
             # assign into dictionary
