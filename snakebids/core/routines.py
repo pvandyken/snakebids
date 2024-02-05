@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import itertools as it
+import math
 import re
 import string
 from collections.abc import Iterator, Mapping
@@ -372,6 +373,8 @@ class Expander:
         }
 
     def __getitem__(self, index: int):
+        templ, ix = divmod(index, len(self.wildcards))
+        self.wildcards
 
 
     def __iter__(self):
