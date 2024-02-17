@@ -48,7 +48,7 @@ class FilterParse(argparse.Action):
                 key = pair
                 value = None
             if ":" in key:
-                key, spec = cast("tuple[str, str]", pair.split(":", 1))
+                key, spec = cast("tuple[str, str]", key.split(":", 1))
                 spec = spec.lower()
                 if spec == "optional":
                     value = OptionalFilter
