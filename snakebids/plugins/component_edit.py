@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 import argparse
-import math
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Sequence, cast
 
 import attrs
 from typing_extensions import override
@@ -31,24 +30,28 @@ class FilterParse(argparse.Action):
             return
 
         for pair in values:
-            eq = pair.find("=")
-            col = pair.find(":")
-            delim = min(eq if eq >= 0 else math.inf, col if col >= 0 else math.inf)
-            if delim is math.inf:
-                raise MisspecifiedCliFilterError(pair)
-            key = pair[:delim]
-            value = pair[delim + 1 :]
-            if delim == col:
-                spec = value.lower()
+            if "=" in pair:
+                # split it into key and value
+                key, value = cast("tuple[str, str]", pair.split("=", 1))
+            else:
+                key = pair
+                value = None
+            if ":" in key:
+                key, spec = cast("tuple[str, str]", pair.split(":", 1))
+                spec = spec.lower()
                 if spec == "optional":
                     value = OptionalFilter
                 elif spec in ["required", "any"]:
                     value = True
                 elif spec == "none":
                     value = False
+                elif spec in {"match", "search"} and value is not None:
+                    value = {spec: value}
                 else:
-                    # The flag isn't recognized
-                    raise MisspecifiedCliFilterError(pair)
+                    value = None
+            if value is None:
+                # The flag isn't recognized
+                raise MisspecifiedCliFilterError(pair)
 
             # assign into dictionary
             getattr(namespace, self.dest)[key] = value
