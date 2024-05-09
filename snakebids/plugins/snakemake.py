@@ -3,7 +3,9 @@ from __future__ import annotations
 import argparse
 import importlib.metadata as impm
 import logging
+import os
 import sys
+import time
 from pathlib import Path
 from typing import Any, Callable, Sequence, TypeVar
 
@@ -311,19 +313,21 @@ class SnakemakeBidsApp:
                 "'unknown'."
             )
         # Write the config file
-        write_config(
-            config_file=self.configfile_outpath,
-            data=dict(
-                config,
-                snakemake_version=impm.version("snakemake"),
-                snakebids_version=impm.version("snakebids"),
-                root=root,
-                app_version=version or "unknown",
-                snakemake_dir=self.snakemake_dir,
-                snakefile=self.snakefile_path,
-            ),
-            force_overwrite=True,
-        )
+        for _ in range(2):
+            write_config(
+                config_file=self.configfile_outpath,
+                data=dict(
+                    config,
+                    snakemake_version=impm.version("snakemake"),
+                    snakebids_version=impm.version("snakebids"),
+                    root=root,
+                    app_version=version or "unknown",
+                    snakemake_dir=self.snakemake_dir,
+                    snakefile=self.snakefile_path,
+                ),
+                force_overwrite=True,
+            )
+            self.configfile_outpath = _run_specific_config_path(self.configfile_outpath)
 
     @bidsapp.hookimpl
     def run(self, config: dict[str, Any]):
@@ -345,3 +349,16 @@ class SnakemakeBidsApp:
                 )
             ]
         )
+
+
+def _run_specific_config_path(configfile_path: Path):
+    suffix = configfile_path.suffix
+    return configfile_path.with_name(
+        "-".join(
+            [
+                configfile_path.stem,
+                time.strftime("%Y%m%d-%H%M%S"),
+                os.urandom(4).hex(),
+            ]
+        )
+    ).with_suffix(suffix)
